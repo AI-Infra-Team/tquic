@@ -3718,7 +3718,13 @@ impl Connection {
     /// If `path_addr` is `None`, a Ping frame will be sent on each active path.
     /// Otherwise, a Ping frame will be on the specified path.
     pub fn ping(&mut self, path_addr: Option<FourTuple>) -> Result<()> {
-        self.paths.mark_ping(path_addr)
+        self.paths.mark_ping(path_addr)?;
+        // Ensure the scheduled PING is driven to the send path promptly, even if the connection
+        // is otherwise idle (no stream IO and no incoming packets) so that idle timeout won't
+        // close an otherwise healthy long-lived connection.
+        self.mark_sendable(true);
+        self.mark_tickable(true);
+        Ok(())
     }
 
     /// Client add a new path on the connection.

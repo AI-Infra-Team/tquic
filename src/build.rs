@@ -161,6 +161,7 @@ fn get_boringssl_build_sub_dir() -> &'static str {
 }
 
 fn main() {
+    let target = std::env::var("TARGET").unwrap();
     if let Ok(boringssl_lib_dir) = std::env::var("BORINGSSL_LIB_DIR") {
         // Build with static boringssl lib.
         // Boringssl lib should turn on CMAKE_POSITION_INDEPENDENT_CODE
@@ -181,4 +182,14 @@ fn main() {
 
     println!("cargo:rustc-link-lib=static=ssl");
     println!("cargo:rustc-link-lib=static=crypto");
+
+    // BoringSSL exposes OpenSSL-compatible symbol names (e.g. SSL_CTX_free). If this crate
+    // is linked into a shared object together with OpenSSL (directly or indirectly), the
+    // duplicated symbols can be interposed at runtime and cause crashes when an OpenSSL
+    // object is freed by BoringSSL or vice versa. Hide symbols from these static archives
+    // so they are not exported from the final shared object.
+    if target.contains("linux") {
+        println!("cargo:rustc-link-arg=-Wl,--exclude-libs,libssl.a");
+        println!("cargo:rustc-link-arg=-Wl,--exclude-libs,libcrypto.a");
+    }
 }
